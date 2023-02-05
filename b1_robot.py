@@ -28,6 +28,8 @@ class B1Robot():
     self._base_orientation = None
     self._motor_angles = np.zeros(12)
     self._motor_velocities = np.zeros(12)
+    self._motor_kps = np.array([1,1,1]*4) # ABDUCTION_P_GAIN, HIP_P_GAIN, KNEE_P_GAIN
+    self._motor_kds = np.array([1,1,1]*4) # ABDUCTION_D_GAIN, HIP_D_GAIN, KNEE_D_GAIN
     self._joint_states = None
     self.init_position = [0, 0, 0.8]
     self._urdf_filename = "./b1.urdf"
@@ -92,7 +94,7 @@ class B1Robot():
 
   def GetBasePosition(self):
     return self._pybullet_client.getBasePositionAndOrientation(self.quadruped)[0]
-  
+
   def _GetMotorNames(self):
     return self.motor_names
 
@@ -116,3 +118,15 @@ class B1Robot():
       joint_info = self._pybullet_client.getJointInfo(self.quadruped, i)
       self._joint_name_to_id[joint_info[1].decode("UTF-8")] = joint_info[0]
 
+  def ApplyAction(self, motor_commands):
+    command = np.zeros(60, dtype=np.float32)
+    result  = motor_commands.items()
+    motor_commands = list(result)
+    command = np.array(motor_commands, dtype=np.float32)
+    self._robot_interface.send_command(command)
+
+  def GetMotorPositionGains(self):
+    return self._motor_kps
+
+  def GetMotorVelocityGains(self):
+    return self._motor_kds
