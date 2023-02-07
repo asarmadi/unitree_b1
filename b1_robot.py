@@ -16,117 +16,129 @@
 """Real robot interface of B1 robot."""
 
 import numpy as np
-import pybullet as pyb 
+import pybullet as pyb
 from rb_interface import RobotInterface
 
-class B1Robot():
-  def __init__(self, pybullet_client):
-    """Initializes the robot class."""
-    self._pybullet_client = pybullet_client
 
-    # Robot state variables
-    self._base_orientation = None
-    self._motor_angles = np.zeros(12)
-    self._motor_velocities = np.zeros(12)
-    self._motor_kps = np.array([1,1,1]*4) # ABDUCTION_P_GAIN, HIP_P_GAIN, KNEE_P_GAIN
-    self._motor_kds = np.array([1,1,1]*4) # ABDUCTION_D_GAIN, HIP_D_GAIN, KNEE_D_GAIN
-    self._joint_states = None
-    self.init_position = [0, 0, 0.8]
-    self._urdf_filename = "./b1.urdf"
-    self.motor_names   = [
-    "FR_hip_joint",
-    "FR_thigh_joint",
-    "FR_calf_joint",
-    "FL_hip_joint",
-    "FL_thigh_joint",
-    "FL_calf_joint",
-    "RR_hip_joint",
-    "RR_thigh_joint",
-    "RR_calf_joint",
-    "RL_hip_joint",
-    "RL_thigh_joint",
-    "RL_calf_joint"]
+class B1Robot:
+    def __init__(self, pybullet_client):
+        """Initializes the robot class."""
+        self._pybullet_client = pybullet_client
 
-    # Initiate UDP for robot state and actions
-    self._robot_interface = RobotInterface()
-    self._LoadRobotURDF()
-    self._BuildJointNameToIdDict()
-    self._motor_id_list = [
-        self._joint_name_to_id[motor_name]
-        for motor_name in self._GetMotorNames()
-    ]
+        # Robot state variables
+        self._base_orientation = None
+        self._motor_angles = np.zeros(12)
+        self._motor_velocities = np.zeros(12)
+        self._motor_kps = np.array(
+            [30, 30, 30] * 4
+        )  # ABDUCTION_P_GAIN, HIP_P_GAIN, KNEE_P_GAIN
+        self._motor_kds = np.array(
+            [3, 3, 3] * 4
+        )  # ABDUCTION_D_GAIN, HIP_D_GAIN, KNEE_D_GAIN
+        self._joint_states = None
+        self.init_position = [0, 0, 0.8]
+        self._urdf_filename = "./b1.urdf"
+        self.motor_names = [
+            "FR_hip_joint",
+            "FR_thigh_joint",
+            "FR_calf_joint",
+            "FL_hip_joint",
+            "FL_thigh_joint",
+            "FL_calf_joint",
+            "RR_hip_joint",
+            "RR_thigh_joint",
+            "RR_calf_joint",
+            "RL_hip_joint",
+            "RL_thigh_joint",
+            "RL_calf_joint",
+        ]
 
-  def ReceiveObservation(self):
-    """Receives observation from robot.
+        # Initiate UDP for robot state and actions
+        self._robot_interface = RobotInterface()
+        self._LoadRobotURDF()
+        self._BuildJointNameToIdDict()
+        self._motor_id_list = [
+            self._joint_name_to_id[motor_name] for motor_name in self._GetMotorNames()
+        ]
 
-    Synchronous ReceiveObservation is not supported in B1,
-    so changging it to noop instead.
-    """
-    state = self._robot_interface.receive_observation()
-    # Convert quaternion from wxyz to xyzw, which is default for Pybullet.
-    q = state.imu.quaternion
-    self._base_orientation = np.array([q[1], q[2], q[3], q[0]])
-    self._motor_angles     = np.array([motor.q for motor in state.motorState[:12]])
-    self._motor_velocities = np.array([motor.dq for motor in state.motorState[:12]])
-    self._joint_states     = np.array(list(zip(self._motor_angles, self._motor_velocities)))
-    self._SetRobotStateInSim(self._motor_angles, self._motor_velocities)
+    def ReceiveObservation(self):
+        """Receives observation from robot.
 
-  def _SetRobotStateInSim(self, motor_angles, motor_velocities):
-    self._pybullet_client.resetBasePositionAndOrientation(
-        self.quadruped, self.GetBasePosition(), self.GetBaseOrientation())
-    for i, motor_id in enumerate(self._motor_id_list):
-      self._pybullet_client.resetJointState(self.quadruped, motor_id,
-                                            motor_angles[i],
-                                            motor_velocities[i])
+        Synchronous ReceiveObservation is not supported in B1,
+        so changging it to noop instead.
+        """
+        state = self._robot_interface.receive_observation()
+        # Convert quaternion from wxyz to xyzw, which is default for Pybullet.
+        q = state.imu.quaternion
+        self._base_orientation = np.array([q[1], q[2], q[3], q[0]])
+        self._motor_angles = np.array([motor.q for motor in state.motorState[:12]])
+        self._motor_velocities = np.array([motor.dq for motor in state.motorState[:12]])
+        self._joint_states = np.array(
+            list(zip(self._motor_angles, self._motor_velocities))
+        )
+        self._SetRobotStateInSim(self._motor_angles, self._motor_velocities)
 
-  @property
-  def motor_velocities(self):
-    return self._motor_velocities.copy()
+    def _SetRobotStateInSim(self, motor_angles, motor_velocities):
+        self._pybullet_client.resetBasePositionAndOrientation(
+            self.quadruped, self.GetBasePosition(), self.GetBaseOrientation()
+        )
+        for i, motor_id in enumerate(self._motor_id_list):
+            self._pybullet_client.resetJointState(
+                self.quadruped, motor_id, motor_angles[i], motor_velocities[i]
+            )
 
-  def Terminate(self):
-    self._is_alive = False
+    @property
+    def motor_velocities(self):
+        return self._motor_velocities.copy()
 
-  def _LoadRobotURDF(self):
-    _urdf_path = self.GetURDFFile()
-    self.quadruped = self._pybullet_client.loadURDF(
-          _urdf_path, self._GetDefaultInitPosition(),
-          self._GetDefaultInitOrientation())
+    def Terminate(self):
+        self._is_alive = False
 
-  def GetBasePosition(self):
-    return self._pybullet_client.getBasePositionAndOrientation(self.quadruped)[0]
+    def _LoadRobotURDF(self):
+        _urdf_path = self.GetURDFFile()
+        self.quadruped = self._pybullet_client.loadURDF(
+            _urdf_path,
+            self._GetDefaultInitPosition(),
+            self._GetDefaultInitOrientation(),
+        )
 
-  def _GetMotorNames(self):
-    return self.motor_names
+    def GetBasePosition(self):
+        return self._pybullet_client.getBasePositionAndOrientation(self.quadruped)[0]
 
-  def GetBaseOrientation(self):
-    return self._base_orientation.copy()
+    def _GetMotorNames(self):
+        return self.motor_names
 
-  def GetURDFFile(self):
-    return self._urdf_filename
+    def GetBaseOrientation(self):
+        return self._base_orientation.copy()
 
-  def _GetDefaultInitPosition(self):
-    return self.init_position
+    def GetURDFFile(self):
+        return self._urdf_filename
 
-  def _GetDefaultInitOrientation(self):
-    init_orientation = pyb.getQuaternionFromEuler([0., 0., 0.])
-    return init_orientation
+    def _GetDefaultInitPosition(self):
+        return self.init_position
 
-  def _BuildJointNameToIdDict(self):
-    num_joints = self._pybullet_client.getNumJoints(self.quadruped)
-    self._joint_name_to_id = {}
-    for i in range(num_joints):
-      joint_info = self._pybullet_client.getJointInfo(self.quadruped, i)
-      self._joint_name_to_id[joint_info[1].decode("UTF-8")] = joint_info[0]
+    def _GetDefaultInitOrientation(self):
+        init_orientation = pyb.getQuaternionFromEuler([0.0, 0.0, 0.0])
+        return init_orientation
 
-  def ApplyAction(self, motor_commands):
-    command = np.zeros(60, dtype=np.float32)
-    result  = motor_commands.items()
-    motor_commands = list(result)
-    command = np.array(motor_commands, dtype=np.float32)
-    self._robot_interface.send_command(command)
+    def _BuildJointNameToIdDict(self):
+        num_joints = self._pybullet_client.getNumJoints(self.quadruped)
+        self._joint_name_to_id = {}
+        for i in range(num_joints):
+            joint_info = self._pybullet_client.getJointInfo(self.quadruped, i)
+            self._joint_name_to_id[joint_info[1].decode("UTF-8")] = joint_info[0]
 
-  def GetMotorPositionGains(self):
-    return self._motor_kps
+    def ApplyAction(self, motor_commands):
+        # command = np.zeros(60, dtype=np.float32)
+        # result  = motor_commands.items()
+        # motor_commands = list(result)
+        # command = np.array(motor_commands, dtype=np.float32)
+        # print(motor_commands)
+        # exit(0)
+        self._robot_interface.send_command(motor_commands)
 
-  def GetMotorVelocityGains(self):
-    return self._motor_kds
+    def GetMotorPositionGains(self):
+        return self._motor_kps
+
+    def GetMotorVelocityGains(self):
+        return self._motor_kds

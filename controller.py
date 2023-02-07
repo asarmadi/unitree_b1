@@ -1,33 +1,35 @@
-class Controller():
-  def __init__(self):
-    self._joint_angles = None
-    self.reset(0)
+import numpy as np
 
-  def reset(self, current_time: float) -> None:
-    """Called during the start of a swing cycle.
 
-    Args:
-      current_time: The wall time in seconds.
-    """
-    del current_time
-    self._joint_angles = {}
+class Controller:
+    def __init__(self):
+        self._joint_angles = None
+        self.reset(0)
 
-  def update(self, current_time: float) -> None:
-    """Called at each control step.
+    def reset(self, current_time: float) -> None:
+        """Called during the start of a swing cycle.
 
-    Args:
-      current_time: The wall time in seconds.
-    """
-    del current_time
+        Args:
+          current_time: The wall time in seconds.
+        """
+        del current_time
+        self._joint_angles = {}
 
-  def get_action(self, robot, desired):
-    
-    action = []
-    kps = robot.GetMotorPositionGains()
-    kds = robot.GetMotorVelocityGains()
-    for joint_id in range(len(desired)):
-      action.extend((desired[joint_id], kps[joint_id], 0, kds[joint_id], 0))
+    def update(self, current_time: float) -> None:
+        """Called at each control step.
 
-    action = np.array(action, dtype=np.float32)
+        Args:
+          current_time: The wall time in seconds.
+        """
+        del current_time
 
-    return action
+    def get_action(self, robot, desired):
+        action = []
+        kps = robot.GetMotorPositionGains()
+        kds = robot.GetMotorVelocityGains()
+        for joint_id in range(len(desired)):
+            action.extend((desired[joint_id], kps[joint_id], 0, kds[joint_id], 0))
+
+        action = np.array(action, dtype=np.float32)
+
+        return action
