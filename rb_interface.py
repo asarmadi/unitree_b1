@@ -1,6 +1,7 @@
 import sys
 
 sys.path.append("/home/franka-ws/Documents/unitree_legged_sdk-3.8.3/lib/python/amd64/")
+# sys.path.append("/data/alireza/high_bo/BayesOpt/lib/")
 import numpy as np
 import robot_interface as sdk
 
@@ -22,6 +23,8 @@ class RobotInterface:
         return self.state
 
     def send_command(self, command):
+        pass
+        """
         for motor_id in range(12):
             self.cmd.motorCmd[motor_id].q = command[motor_id * 5]
             self.cmd.motorCmd[motor_id].Kp = command[motor_id * 5 + 1]
@@ -32,3 +35,4 @@ class RobotInterface:
         self.safe.PositionLimit(self.cmd)
         self.udp.SetSend(self.cmd)
         self.udp.Send()
+        """
