@@ -24,9 +24,10 @@ from rb_interface import RobotInterface
 
 
 class B1Robot:
-    def __init__(self, pybullet_client):
+    def __init__(self, pybullet_client,sim=False):
         """Initializes the robot class."""
         self._pybullet_client = pybullet_client
+        self.sim = sim   # If true, the code will be run in the simulation mode
 
         # Robot state variables
         self.mass = 50  # kg
@@ -67,6 +68,12 @@ class B1Robot:
             self._joint_name_to_id[motor_name] for motor_name in self._GetMotorNames()
         ]
         self._BuildUrdfIds()
+        if sim:
+           _, self._init_orientation_inv = self._pybullet_client.invertTransform(
+             position=[0, 0, 0], orientation=[0,0,0,1])
+           self._base_position, orientation = (self._pybullet_client.getBasePositionAndOrientation(self.quadruped))
+           _, self._base_orientation = self._pybullet_client.multiplyTransforms(positionA=[0, 0, 0],orientationA=orientation,positionB=[0, 0, 0], orientationB=self._init_orientation_inv)
+
 
     def ReceiveObservation(self):
         """Receives observation from robot.
@@ -74,15 +81,19 @@ class B1Robot:
         Synchronous ReceiveObservation is not supported in B1,
         so changging it to noop instead.
         """
-        state = self._robot_interface.receive_observation()
-        # Convert quaternion from wxyz to xyzw, which is default for Pybullet.
-        q = state.imu.quaternion
-        self._base_orientation = np.array([q[1], q[2], q[3], q[0]])
-        self._motor_angles = np.array([motor.q for motor in state.motorState[:12]])
-        self._motor_velocities = np.array([motor.dq for motor in state.motorState[:12]])
-        self._joint_states = np.array(
-            list(zip(self._motor_angles, self._motor_velocities))
-        )
+        if self.sim:
+           self._joint_states = self._pybullet_client.getJointStates(self.quadruped, self._motor_id_list)
+           self._base_position, orientation = (self._pybullet_client.getBasePositionAndOrientation(self.quadruped))
+           _, self._base_orientation = self._pybullet_client.multiplyTransforms(positionA=[0, 0, 0],orientationA=orientation,positionB=[0, 0, 0], orientationB=self._init_orientation_inv)
+           self._motor_angles = [state[0] for state in self._joint_states]
+           self._motor_velocities = [state[1] for state in self._joint_states]
+        else:
+           state = self._robot_interface.receive_observation()
+           q = state.imu.quaternion
+           self._base_orientation = np.array([q[1], q[2], q[3], q[0]])
+           self._motor_angles = np.array([motor.q for motor in state.motorState[:12]])
+           self._motor_velocities = np.array([motor.dq for motor in state.motorState[:12]])
+           self._joint_states = np.array(list(zip(self._motor_angles, self._motor_velocities)))
         self._SetRobotStateInSim(self._motor_angles, self._motor_velocities)
 
     def _SetRobotStateInSim(self, motor_angles, motor_velocities):
@@ -129,7 +140,7 @@ class B1Robot:
         return self.motor_names
 
     def GetBaseOrientation(self):
-        return self._base_orientation.copy()
+        return self._base_orientation
 
     def GetURDFFile(self):
         return self._urdf_filename

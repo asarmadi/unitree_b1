@@ -1,7 +1,7 @@
 import sys
 
-sys.path.append("/home/franka-ws/Documents/unitree_legged_sdk-3.8.3/lib/python/amd64/")
-# sys.path.append("/data/alireza/high_bo/BayesOpt/lib/")
+#sys.path.append("/home/franka-ws/Documents/unitree_legged_sdk-3.8.3/lib/python/amd64/")
+sys.path.append("/data/alireza/high_bo/BayesOpt/lib/")
 import numpy as np
 import robot_interface as sdk
 

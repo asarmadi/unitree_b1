@@ -6,6 +6,7 @@ from pybullet_utils import bullet_client
 import b1_robot
 
 cnt_str = "stance"
+sim = True
 p = bullet_client.BulletClient(connection_mode=pybullet.GUI)
 p.setPhysicsEngineParameter(numSolverIterations=30)
 p.setTimeStep(0.001)
@@ -16,7 +17,8 @@ p.loadURDF("plane.urdf")
 p.resetDebugVisualizerCamera(
     cameraDistance=3, cameraYaw=10, cameraPitch=-20, cameraTargetPosition=[0, 0, 1.0]
 )
-robot = b1_robot.B1Robot(pybullet_client=p)
+
+robot = b1_robot.B1Robot(pybullet_client=p, sim=sim)
 
 desired_joint_angles = np.array([0, 0.9, -1.8] * 4)
 if cnt_str == "joint":
